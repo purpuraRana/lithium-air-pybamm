@@ -1,8 +1,11 @@
 ## Overview
 
 This repository contains a work-in-progress 1D electrochemical model of a Li-O_2 battery cathode based primarily on:
+
 K. Jiang et al., *Parameter sensitivity analysis and cathode structure optimization of a non-aqueous Li-O_2 battery model*, Journal of Power Sources 451 (2020) 227821.
 https://doi.org/10.1016/j.jpowsour.2020.227821
+
+Note: This is an independent reimplementation, and I am not affiliated with the authors.
 
 ## Status
 
