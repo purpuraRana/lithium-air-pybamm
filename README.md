@@ -12,7 +12,7 @@ Note: This is an independent reimplementation, and I am not affiliated with the 
 This model is under active development.
 
 - Core physics implemented: Butler-Volmer kinetics, O_2 transport, Li₂O₂ deposition, porosity evolution
-- Model runs under no initial Li₂O₂, but fails otherwise
+- Model runs under no initial Li₂O₂; seeded precipitation is under investigation
 
 ## Known issues:
 
