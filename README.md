@@ -24,3 +24,9 @@ This model is under active development.
 - Achieve a well-posed cathode + separator formulation
 - Reproduce Jiang et al. discharge curves
 - Use the model as a learning platform for Li-air battery electrochemistry
+
+## Environment:
+
+Developed and tested with:
+- Python 3.10.16 (packaged by Anaconda)
+- PyBaMM 25.4.0
