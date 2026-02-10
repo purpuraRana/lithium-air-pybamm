@@ -17,9 +17,6 @@ class LiO2_1D(pybamm.BaseModel):
         T = pybamm.Parameter("T")
         Eeq = pybamm.Parameter("Eeq")   # ORR equilibrium potential
 
-        sigma = pybamm.Parameter("sigma")
-        kappa = pybamm.Parameter("kappa")
-
         # Separator
         Lsep = pybamm.Parameter("Lsep")          # 2.5e-5
         eps_sep = pybamm.Parameter("eps_sep")    # 0.5
@@ -41,7 +38,8 @@ class LiO2_1D(pybamm.BaseModel):
         beta = pybamm.Parameter("beta")
         k_c = pybamm.Parameter('k_c')
         Lc = pybamm.Parameter("Lc")
-
+        sigma = pybamm.Parameter("sigma")
+        kappa = pybamm.Parameter("kappa")
         D_Li = pybamm.Parameter("D_Li")
         tP = pybamm.Parameter("tP")     # Li transference number
         cLi2O2_max = pybamm.Parameter("c_Li2O2_max")
@@ -49,7 +47,7 @@ class LiO2_1D(pybamm.BaseModel):
         # Anode
         k_a = pybamm.Parameter('k_a')
 
-        # Temporary
+        # Other
         l_sigma = pybamm.Parameter("l_sigma")
 
         # Input
@@ -69,7 +67,8 @@ class LiO2_1D(pybamm.BaseModel):
         eps_floor = pybamm.Scalar(1e-6)
         eps_safe = pybamm.maximum(eps, eps_floor)
         eps_cap = pybamm.Scalar(1e-6)
-        eps_clip = pybamm.minimum(eps_safe, (pybamm.Scalar(1) - eps_s0 - eps_cap))
+        #eps_clip = pybamm.minimum(eps_safe, (pybamm.Scalar(1) - eps_s0 - eps_cap))
+        eps_clip = eps_safe
 
         # Algebraic Variables
         phi_s = pybamm.Variable("Solid potential", domain="cathode")
@@ -100,7 +99,6 @@ class LiO2_1D(pybamm.BaseModel):
         arg_c = pybamm.maximum(pybamm.minimum(arg_c, 25), -25)
 
         j_c = 2*F*(k_a * cLi2O2_s * pybamm.exp(arg_a) - k_c * cLi**2 * cO2 * pybamm.exp(arg_c)) # Eq 15
-        # Defining it as j_bv here even though Eq 15 defines it as j_c so it can be solved implicitly
 
         # Conservation of Charge
         i_l = -kappa_eff * pybamm.grad(phi_l)       # Simplified Eq 9 (add full version when lithium transport is modeled)
@@ -110,7 +108,6 @@ class LiO2_1D(pybamm.BaseModel):
         self.algebraic = {
             phi_s: pybamm.div(i_s) + a * j_c,
             phi_l: pybamm.div(i_l) - a * j_c,
-            #j_c: j_c - j_bv
         }
 
         # Li2O2 Product Concentration (Eq 19)
@@ -130,7 +127,6 @@ class LiO2_1D(pybamm.BaseModel):
         N_O2 = -D_O2_eff * pybamm.grad(cO2)     # O2 flux
         dcO2_dt = ((-pybamm.div(N_O2) - a * j_c / (2*F)) - cO2 * deps_dt) / eps_safe
 
-
         self.rhs = {cLi: dcLi_dt, cLi2O2: dcLi2O2_dt, cO2: dcO2_dt, eps: deps_dt}
 
         eps0 = pybamm.Parameter("eps0")
@@ -148,30 +144,28 @@ class LiO2_1D(pybamm.BaseModel):
         gate = cP0 / (cP0 + pybamm.Scalar(1e-12) * cLi2O2_max)
         eta0 = gate * eta0_raw
 
-        # Model separator for separator-cathode BCs
-        kappa_sep_eff = kappa * eps_sep     # no tortuosity
-        R_sep = Lsep / kappa_sep_eff
-        phi_l_left = -J * R_sep
+        kappa_eff0 = kappa * pybamm.Parameter("eps0") ** b
+        phi_l_guess = -J * (x - Lc) / kappa_eff0   # so phi_l(L)=0 and dphi/dx = -J/kappa_eff0
+        phi_s_guess = phi_l_guess + Eeq 
 
         # ICs
-        sigma_eff0 = sigma * (1 - eps0) ** b
-        kappa_eff0 = kappa * eps0 ** b
+        
         c_seed = 1e-10 * cLi2O2_max
         #c_seed = 0
-        phi_s_init = -J * (x - Lc)/ sigma_eff0
-        phi_l_init = J * x / kappa_eff0
         self.initial_conditions = {
             cLi: pybamm.Parameter("c_Li_0"),
             cLi2O2: c_seed,         # seed a small amount of dissolved cLi2O2
             cO2: cO2_ext * S_O2, 
             eps: pybamm.Parameter("eps0"),
-            phi_s: phi_l_left + Eeq + eta0, 
-            phi_l: phi_l_left, 
+            phi_s: phi_s_guess, 
+            phi_l: phi_l_guess, 
             
         } 
 
-
         # BCs
+        sigma_eff_L = pybamm.boundary_value(sigma_eff, "right")
+        kappa_eff_0 = pybamm.boundary_value(kappa_eff, "left")
+
         self.boundary_conditions = {
             cLi: {
                 "left": (pybamm.Scalar(0), "Neumann"),
@@ -184,15 +178,17 @@ class LiO2_1D(pybamm.BaseModel):
             },
 
             phi_s: {
-                "left":  (pybamm.Scalar(0), "Dirichlet"),
-                "right": (-J / sigma_eff0, "Neumann") 
+                "left":  (pybamm.Scalar(0), "Neumann"),
+                "right": (-J / sigma_eff_L, "Neumann") 
             },
             phi_l: {
-                "left":  (phi_l_left, "Dirichlet"),  
+                "left":  (-J / kappa_eff_0, "Neumann"),  
                 "right": (pybamm.Scalar(0), "Neumann") 
             },
-            
+        
         }
+        # set gauge condition
+        self.boundary_conditions[phi_l]["right"] = (pybamm.Scalar(0), "Dirichlet")
 
         # Outputs
         self.variables = {

@@ -7,7 +7,7 @@ def jiang_2020_params():
         "T": 300,    # K (Table 1)
         "R": 8.314,     # J K-1 mol-1
         "tau_ramp": 1,   # seconds
-        "J_floor": 1e-8,
+        "J_floor": 0,
         "eps_Li2O2_seed": 0, #1e-8,
 
         # Separator
